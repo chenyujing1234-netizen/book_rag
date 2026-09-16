@@ -62,6 +62,20 @@ NOISE = re.compile(
 )
 CJK = re.compile(r"[\u4e00-\u9fff]")
 
+# qwen-plus 的内容审核会拒掉这两篇（data_inspection_failed），重试多少次都一样，
+# 所以简介只能人工写在这里。键是文档标题。
+MANUAL_SUMMARY = {
+    "books_王怡牧师文集：背负十架——中国家庭教会史.txt":
+        "王怡牧师 2018 年在秋雨圣约教会成人主日学的讲课录音整理，梳理 1807 至 2018 年"
+        "新教入华与中国家庭教会的历史。全十章依次讲述新教入华两世纪、中华归主五十年、"
+        "护教士与叛教者、基要派的大复兴、福音进城，直至改革宗在中国与家庭教会的传统、承继与未来。",
+    "books_王怡牧师文集：论政教关系.txt":
+        "王怡牧师文集「基督是主」之政教关系卷，收录《我的声明：信仰上的抗命》"
+        "《2018 年宗教战争沉思录》《我们对家庭教会立场的重申（九十五条）》"
+        "《宪政主义与基督教世界观》等文章，分政教关系、牧会与思考、读经灵修三部分，"
+        "阐述其从改革宗神学出发对政教关系的理解。",
+}
+
 
 def from_summary(desc):
     """AI 摘要的第一段就是总述，最适合当简介。"""
@@ -118,7 +132,9 @@ def main():
     ai_count = 0
     for kb, title, ftype, fsize, chunks, textlen, first, desc, sumstat in rows:
         # AI 摘要质量远好于首段提取，优先用；失败或过短才回退
-        if sumstat == "completed" and len(desc) >= 80:
+        if title in MANUAL_SUMMARY:
+            summary = MANUAL_SUMMARY[title]
+        elif sumstat == "completed" and len(desc) >= 80:
             summary = from_summary(desc)
             ai_count += 1
         else:

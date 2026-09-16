@@ -12,7 +12,7 @@
 
 ## 书库里现在有什么
 
-当前共 **82 个知识库、219 篇文档**，涵盖圣经注释与研经资料、教育、文集等。
+当前共 **81 个知识库、211 篇文档**，涵盖圣经注释与研经资料、教育、文集等。
 
 完整书目和每本书的简介见 **[知识库目录.md](知识库目录.md)** —— 每篇都有 AI 生成的内容简介、分块数和字符数，可以先在那里确认有没有你要的书。
 
@@ -24,9 +24,15 @@
 
 MCP 适合桌面助手，接入后助手会多出一批工具（检索、列知识库、导入文件等 28 个）。
 
-### 1. 获取 API Key
+### 1. API Key
 
-检索接口需要一个 API Key。获取方式见下方 [联系我](#联系我)，或者你自己部署一套（见 [自己部署](#自己部署可选)）。
+直接用下面这个公开 Key，不用申请：
+
+```
+sk-zR7iHweItYJ-pu0gvBNTuss-WJZVxBP9UxW0OEuJqUk
+```
+
+它是只读的，只能列知识库和检索，不能新增、修改、删除任何内容，请放心使用。
 
 ### 2. 安装 uv
 
@@ -54,7 +60,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
       "args": ["--from", "tencent-weknora-mcp", "weknora-mcp-server"],
       "env": {
         "WEKNORA_BASE_URL": "http://124.222.77.32:8081/api/v1",
-        "WEKNORA_API_KEY": "sk-换成你拿到的key",
+        "WEKNORA_API_KEY": "sk-zR7iHweItYJ-pu0gvBNTuss-WJZVxBP9UxW0OEuJqUk",
         "MCP_TRANSPORT": "stdio",
         "UV_INDEX_URL": "https://pypi.tuna.tsinghua.edu.cn/simple"
       }
@@ -80,7 +86,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 cp -r skills/book-rag ~/.cursor/skills/
 ```
 
-然后在 `SKILL.md` 里把 `sk-换成你拿到的key` 替换成你的 API Key。
+Key 已经写在 `SKILL.md` 里了，复制过去就能直接用。
 
 Skill 的工作方式是：助手先列出知识库找到相关的那本书，再对它做混合检索拿回原文片段，最后**用助手自己的模型**来组织答案。好处是不消耗服务端的大模型额度，所以对大家都免费。
 
@@ -92,7 +98,7 @@ Skill 的工作方式是：助手先列出知识库找到相关的那本书，�
 
 ```bash
 curl -X POST "http://124.222.77.32:8081/api/v1/knowledge-bases/{kb_id}/hybrid-search" \
-  -H "X-API-Key: sk-换成你拿到的key" \
+  -H "X-API-Key: sk-zR7iHweItYJ-pu0gvBNTuss-WJZVxBP9UxW0OEuJqUk" \
   -H 'Content-Type: application/json' \
   -d '{"query_text":"挪亚方舟洪水","top_k":3}'
 ```
@@ -111,7 +117,7 @@ curl -X POST "http://124.222.77.32:8081/api/v1/knowledge-bases/{kb_id}/hybrid-se
 
 ## 联系我
 
-有任何问题、想要 API Key、或者要提供书本资源，欢迎加我微信联系：
+有任何问题、或者要提供书本资源，欢迎加我微信联系：
 
 <img src="wechat-qrcode.jpg" width="260" alt="微信二维码">
 

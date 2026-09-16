@@ -1,0 +1,123 @@
+# WeKnora 最小栈容器编排（纯预构建镜像，不含任何本地构建）
+# 裁剪自官方 docker-compose.yml，仅保留默认启用的 5 个服务。
+# 可选组件（MinIO / Neo4j / Qdrant / Milvus / Langfuse / SearxNG / MCP）已移除：
+# 本机 3.6G 物理内存承载不了，需要时再单独接入。
+services:
+  postgres:
+    image: paradedb/paradedb:v0.22.2-pg17
+    container_name: WeKnora-postgres
+    environment:
+      - POSTGRES_USER=${DB_USER}
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    networks:
+      - WeKnora-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+    restart: unless-stopped
+    stop_grace_period: 1m
+    mem_limit: 768m
+
+  redis:
+    image: redis:7.0-alpine
+    container_name: WeKnora-redis
+    command: redis-server --appendonly yes --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis-data:/data
+    networks:
+      - WeKnora-network
+    restart: unless-stopped
+    mem_limit: 192m
+
+  docreader:
+    image: wechatopenai/weknora-docreader:latest
+    container_name: WeKnora-docreader
+    expose:
+      - "50051"
+    volumes:
+      - docreader-tmp:/tmp/docreader
+    env_file:
+      - .env
+    environment:
+      - DOCREADER_IMAGE_OUTPUT_DIR=/tmp/docreader
+    healthcheck:
+      test: ["CMD", "grpc_health_probe", "-addr=localhost:50051"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    networks:
+      - WeKnora-network
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    mem_limit: 2g
+
+  app:
+    image: wechatopenai/weknora-app:latest
+    container_name: WeKnora-app
+    ports:
+      - "${APP_PORT:-8083}:8080"
+    volumes:
+      - data-files:/data/files
+      - docreader-tmp:/tmp/docreader:ro
+      - ./config/config.yaml:/app/config/config.yaml
+    env_file:
+      - .env
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+    depends_on:
+      redis:
+        condition: service_started
+      postgres:
+        condition: service_healthy
+      docreader:
+        condition: service_healthy
+    networks:
+      - WeKnora-network
+    restart: unless-stopped
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    mem_limit: 1g
+
+  frontend:
+    image: wechatopenai/weknora-ui:latest
+    container_name: WeKnora-frontend
+    ports:
+      - "${FRONTEND_PORT:-8081}:80"
+    # 不使用 env_file：.env 里的 APP_PORT 是宿主映射端口，会让 nginx 代理到错误端口。
+    environment:
+      - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}
+      - APP_HOST=app
+      - APP_PORT=8080
+      - APP_SCHEME=http
+    volumes:
+      # 覆盖镜像内同名文件，仅追加 gzip off（见文件内注释）
+      - ./nginx/api-proxy.conf:/etc/nginx/api-proxy.conf:ro
+    depends_on:
+      app:
+        condition: service_healthy
+    networks:
+      - WeKnora-network
+    restart: unless-stopped
+    mem_limit: 128m
+
+networks:
+  WeKnora-network:
+    driver: bridge
+
+volumes:
+  postgres-data:
+  redis-data:
+  data-files:
+  docreader-tmp:

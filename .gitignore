@@ -27,3 +27,7 @@ __pycache__/
 .vscode/
 .idea/
 .DS_Store
+
+# 第三方 OCR 服务的 key
+.ocr_key
+ocr_cache/

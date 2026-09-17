@@ -125,6 +125,17 @@ DELETE /api/v1/knowledge-bases/{kb_id}    # 删除（同步返回）
 > ```
 >
 > 模型 ID 从 `GET /api/v1/models` 取（见 3.8）。省事且不会出错的做法是**在网页界面建库**——界面会强制要求选 embedding 模型——接口只用来传文档。
+>
+> **本实例已装触发器兜底。** 这个坑在 2026-09-17 又复发了一次（客户端用 MCP 建库，传进去的两本书挂在 `processing`，看起来像服务端卡死，实际负载只有 0.13）。所以加了 `sql/kb_defaults_trigger.sql`：`knowledge_bases` 上的 BEFORE INSERT 触发器，`embedding_model_id` 为空时自动从 `models` 表取 active 的 Embedding 模型填上，`chunk_size` 为 0 时补成上面那套默认分块配置。字段已有值时不介入，所以界面建库和显式传参都不受影响。
+>
+> 安装：`docker exec -i WeKnora-postgres psql -U weknora -d weknora < sql/kb_defaults_trigger.sql`
+>
+> 自查当前有没有中招的库：
+>
+> ```sql
+> SELECT name FROM knowledge_bases
+> WHERE deleted_at IS NULL AND coalesce(embedding_model_id,'') = '';
+> ```
 
 列表返回的每个知识库含 `id`、`name`、`chunk_count`、`chunking_config`（分块策略）、`capabilities`（启用了向量/关键词/图谱等哪些检索能力）。
 

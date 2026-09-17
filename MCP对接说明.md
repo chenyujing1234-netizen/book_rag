@@ -101,6 +101,12 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 配好后重启助手，MCP 工具列表里应该出现 28 个 `weknora` 工具。可以让助手执行「列出所有知识库」，正常会返回你的「和合本修订版」。
 
+> **探活请用只读调用。** 别靠「上传一篇文档看能不能成功」来做健康检查——这是共享书库，
+> 探活文档会留在正式书库里，混进书目和检索结果。2026-09-18 就在「和合本修订版」里
+> 清掉了一篇客户端留下的 `_health_*.txt`。要探活就调 `list_knowledge_bases`，
+> 它足以验证网络、API Key 和服务状态；如果确实要测上传链路，传完请自己调
+> `delete_knowledge` 删掉。
+
 MCP server 的诊断信息全部输出到 stderr（stdout 是 JSON-RPC 通道），启动正常时 stderr 会有：
 
 ```

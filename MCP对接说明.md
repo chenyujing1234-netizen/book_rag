@@ -190,7 +190,7 @@ INFO:     Uvicorn running on http://0.0.0.0:8082
 
 **租户**：`list_tenants`、`create_tenant`
 
-> **不要用 `create_knowledge_base` 建库。** 这个工具不接受 embedding 模型参数，建出来的知识库 `embedding_model_id` 为空，之后往里导的文档全部会解析失败（详见第七节）。建库请在网页界面做，MCP 只用来导文档和检索。
+> **`create_knowledge_base` 现在可以用了**，但这是靠服务端补的兜底。这个工具不接受 embedding 模型参数，建出来的库 `embedding_model_id` 为空，导进去的文档会全部挂死在 `processing`。本实例在 2026-09-18 装了数据库触发器 `trg_kb_fill_model_defaults`，建库时自动补上 embedding、summary 模型和分块配置（见 `sql/kb_defaults_trigger.sql`）。**如果你连的是自己部署的 WeKnora 且没装这个触发器，仍然只能在网页界面建库**，详见第七节。
 
 ### 几个常用工具的实测入参
 
@@ -247,9 +247,13 @@ git clone --depth 1 https://github.com/Tencent/WeKnora.git
 
 `create_knowledge_base` 只接受名称和描述，**建出来的知识库 `embedding_model_id` 是空字符串**。往这种库里导文件，docreader 能解析出文本，但向量化时报 `model ID cannot be empty`，任务挂死在 `processing`，约 2 小时后被 housekeeping 改成 `failed`，错误信息写的是 `task stuck in processing > 2h10m0s, recovered by housekeeping`——完全看不出真实原因。
 
-表现就是**知识库建好了，但里面一篇文档都没有**。2026-09-15 通过脚本建的 81 个库全部中招，153 篇文档无一成功。
+表现就是**知识库建好了，但里面一篇文档都没有**。2026-09-15 通过脚本建的 81 个库全部中招，153 篇文档无一成功。2026-09-17 又复发一次：客户端用 MCP 建了「中文公版书」，传进去的《论语》《孙子兵法》双双挂在 `processing`，从客户端看就是「服务端卡住了」——其实服务端负载只有 0.13，根本没在干活。
 
-这个字段事后无法通过 API 修改（`UpdateKnowledgeBase` 的请求体里没有它），只能改数据库再用 `batch-reparse` 重跑。所以：
+这个字段事后无法通过 API 修改（`UpdateKnowledgeBase` 的请求体里没有它），只能改数据库再用 `batch-reparse` 重跑。
+
+**本实例已装触发器兜底**：`sql/kb_defaults_trigger.sql` 在 `knowledge_bases` 上加了 BEFORE INSERT 触发器，建库时若 `embedding_model_id` 为空就自动从 `models` 表取 active 的 Embedding 模型填上，`chunk_size` 为 0 时也一并补成默认分块配置。字段非空时不介入，界面建库不受影响。装了之后 MCP 建库已实测正常：建库、上传、25 秒内 `completed`。
+
+自己部署的实例如果没装这个触发器，仍要遵守：
 
 - **建库一律在网页界面做**，界面会强制要求选 embedding 模型；
 - 让助手导文档前，先让它 `get_knowledge_base` 确认目标库的 `embedding_model_id` 不为空；

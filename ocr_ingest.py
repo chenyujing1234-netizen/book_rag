@@ -174,6 +174,7 @@ def main():
         print(f"    {len(t['pages'])} 页，已缓存 {len(cached)} 页", flush=True)
 
         fh = open(cache_file, "a", encoding="utf-8")
+        consecutive_fail = 0
         for i, page in enumerate(t["pages"]):
             if i in cached:
                 skipped_pages += 1
@@ -184,9 +185,17 @@ def main():
                 sys.exit(f"磁盘仅剩 {free_mb}MB，中止")
             try:
                 txt = ocr_page(page)
+                consecutive_fail = 0
             except Exception as e:
-                print(f"    第 {i + 1} 页失败，留空继续：{e}", flush=True)
-                txt = ""
+                # 不缓存失败页，否则会被永久记成空白；下次重跑会自动重试
+                consecutive_fail += 1
+                print(f"    第 {i + 1} 页失败（连续 {consecutive_fail}）：{e}", flush=True)
+                if consecutive_fail >= 3:
+                    # 连着失败通常是 OCR 服务挂了或网络断了，硬等比刷失败日志有意义
+                    print("    连续失败 3 页，判定服务异常，等待 5 分钟", flush=True)
+                    time.sleep(300)
+                    consecutive_fail = 0
+                continue
             cached[i] = txt
             fh.write(json.dumps({"i": i, "t": txt}, ensure_ascii=False) + "\n")
             fh.flush()
@@ -199,6 +208,11 @@ def main():
                 print(f"    {i + 1}/{len(t['pages'])} 页，{speed * 60:.1f} 页/分，"
                       f"全部剩余约 {left:.1f} 小时", flush=True)
         fh.close()
+
+        gaps = [i for i in range(len(t["pages"])) if i not in cached]
+        if gaps:
+            print(f"    还有 {len(gaps)} 页未成功识别，本书暂不上传，重跑会自动补齐", flush=True)
+            continue
 
         content = clean_text([cached.get(i, "") for i in range(len(t["pages"]))])
         chars = len(content)

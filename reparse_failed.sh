@@ -36,16 +36,26 @@ done
 
 psql_q() { docker exec WeKnora-postgres psql -U weknora -d weknora -t -A -F'|' -c "$1"; }
 
+# 取剩余有效期最长的登录态
+fresh_token() {
+  psql_q "SELECT token FROM auth_tokens WHERE token_type='access_token' AND is_revoked=false AND expires_at>now() ORDER BY expires_at DESC LIMIT 1;"
+}
+
+USE_DB_TOKEN=0
+
 # 认证：优先用环境变量里的 API Key，否则取数据库里未过期的登录态
 if [[ -n "${WEKNORA_API_KEY:-}" ]]; then
   AUTH_HEADER="X-API-Key: $WEKNORA_API_KEY"
 else
-  TOKEN=$(psql_q "SELECT token FROM auth_tokens WHERE token_type='access_token' AND is_revoked=false AND expires_at>now() ORDER BY created_at DESC LIMIT 1;")
+  # 登录态按剩余有效期取，不是按签发时间——库里常有更晚签发但已快过期的 token。
+  # 2026-09-19 踩过：取错 token，28 篇跑到第 6 篇起全部 401。
+  # tenant_api_keys 里的 api_key 是 enc:v1: 密文，取出来不能直接用，所以只能走登录态。
+  TOKEN=$(fresh_token)
   if [[ -z "$TOKEN" ]]; then
     echo "没有可用的登录态。请在浏览器登录一次 WeKnora，或设置 WEKNORA_API_KEY 后重试。" >&2
     exit 1
   fi
-  AUTH_HEADER="Authorization: Bearer $TOKEN"
+  USE_DB_TOKEN=1
 fi
 
 WHERE="k.parse_status='failed' AND k.deleted_at IS NULL"
@@ -86,6 +96,16 @@ for row in "${ROWS[@]}"; do
     echo "    可用内存 ${free_mb}MB < ${MIN_FREE_MB}MB，等待 30s"
     sleep 30
   done
+
+  # 大部头单篇可能跑十几分钟，登录态会在中途失效，所以每篇都重新取一次
+  if [[ $USE_DB_TOKEN -eq 1 ]]; then
+    TOKEN=$(fresh_token)
+    if [[ -z "$TOKEN" ]]; then
+      echo "    登录态已全部过期，请在浏览器登录一次后重跑" >&2
+      break
+    fi
+    AUTH_HEADER="Authorization: Bearer $TOKEN"
+  fi
 
   resp=$(curl -s -X POST -H "$AUTH_HEADER" -H 'Content-Type: application/json' \
     -d "{\"kb_id\":\"$kbid\",\"ids\":[\"$kid\"]}" \

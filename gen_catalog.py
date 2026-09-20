@@ -1,11 +1,14 @@
 #!/usr/bin/env python3
-"""从 WeKnora 数据库生成《知识库目录.md》。
-
-新增或删除文档后重跑一次即可保持目录同步：
+"""从 WeKnora 数据库生成书目，并同步写进 README。
 
     python3 gen_catalog.py
 
-简介取自每篇文档的首个分块，已剔除图片占位符和版权页噪声。
+会更新两处：
+- 知识库目录.md —— 运维台账，含分块数、字符数、扫描件标记
+- README.md 里 <!-- CATALOG:START --> 到 <!-- CATALOG:END --> 之间的段落
+  只放书名和简介，方便 GitHub / 搜索引擎按书名命中这个仓库
+
+简介取自每篇文档的 AI 摘要，失败时回退为首段摘录。
 扫描件（提取不到文字的 PDF）会单独标注，不混在正文里。
 """
 import csv
@@ -14,10 +17,24 @@ import re
 import subprocess
 from collections import defaultdict
 from datetime import datetime
+from pathlib import Path
 
 OUT = "知识库目录.md"
+README = "README.md"
 SUMMARY_LEN = 150         # 简介截断长度
 SCAN_THRESHOLD = 5000     # 实际文字少于此值视为扫描件/无效
+CATALOG_START = "<!-- CATALOG:START -->"
+CATALOG_END = "<!-- CATALOG:END -->"
+
+# 文件名尾巴，展示时去掉，搜索命中靠书名本身
+FILE_TAIL = re.compile(
+    r"(?:\.扫描版|\.清晰文字版|\.彩色图文版|\.文字版)?"
+    r"\.(?:txt|pdf|md|epub|doc|docx)$",
+    re.I,
+)
+NUM_TAIL = re.compile(r"_\d+$")          # 三国演义_64
+BOOKS_PREFIX = re.compile(r"^books_")
+BRACKET_TITLE = re.compile(r"^\[(.+?)\](?:\.(.+))?$")
 
 QUERY = r"""
 COPY (
@@ -126,6 +143,90 @@ def human(size):
     return f"{size // 1024}KB"
 
 
+def display_title(title):
+    """把入库文件名收成能被搜索的书名。"""
+    t = FILE_TAIL.sub("", title.strip())
+    t = BOOKS_PREFIX.sub("", t)
+    t = NUM_TAIL.sub("", t)
+    m = BRACKET_TITLE.match(t)
+    if m:
+        t = m.group(1)
+        author = (m.group(2) or "").split(".")[0]
+        if author and author not in ("扫描版", "清晰文字版", "彩色图文版", "文字版"):
+            t = f"{t}（{author}）"
+    return t.strip(" .-_") or title
+
+
+def md_cell(text):
+    return (text or "").replace("|", "／").replace("\n", " ").strip()
+
+
+def render_readme_catalog(by_kb, multi, single, total_docs, ai_count):
+    """给 README 用的精简书目：书名 + 简介，不要分块数这类运维字段。"""
+    L = []
+    w = L.append
+    w(f"当前共 **{len(by_kb)} 个知识库、{total_docs} 篇文档**，"
+      "涵盖中文公版古籍（正史、诸子、古典小说、医书、蒙学）、"
+      "圣经和合本修订版与研经注释、家庭教育、王怡文集等。")
+    w("")
+    w("下面是每一本书的书名和简介。GitHub 和搜索引擎都能按书名命中；"
+      "完整分块数、字符数和扫描件标记见 [知识库目录.md](知识库目录.md)，"
+      "每批书从哪来见 [入库台账.md](入库台账.md)。")
+    w("")
+    w(f"简介由 WeKnora 用 qwen-plus 生成（{ai_count}/{total_docs} 篇），其余为正文摘录。")
+    w("")
+
+    for kb, docs in sorted(multi.items(), key=lambda x: -len(x[1])):
+        w(f"### {kb}（{len(docs)} 篇）")
+        w("")
+        w("| 书名 | 简介 |")
+        w("|---|---|")
+        for d in docs:
+            name = display_title(d["title"])
+            if d["scan"]:
+                name = f"⚠ {name}"
+                intro = "扫描件，没有文字层，检索不到正文"
+            else:
+                intro = md_cell(d["summary"])
+            w(f"| {md_cell(name)} | {intro} |")
+        w("")
+
+    if single:
+        w(f"### 单文档知识库（{len(single)} 个）")
+        w("")
+        w("| 书名 | 简介 |")
+        w("|---|---|")
+        for kb in sorted(single):
+            d = single[kb]
+            name = display_title(d["title"]) if d["title"] else kb
+            # 单文档库的库名往往就是书名，哪个更像书名用哪个
+            if len(kb) > len(name) and not kb.startswith("_"):
+                name = kb
+            if d["scan"]:
+                name = f"⚠ {name}"
+                intro = "扫描件，没有文字层，检索不到正文"
+            else:
+                intro = md_cell(d["summary"])
+            w(f"| {md_cell(name)} | {intro} |")
+        w("")
+
+    return "\n".join(L)
+
+
+def write_readme_catalog(section):
+    """把生成的书目嵌进 README 的标记区间，没有标记就报错，避免误改全文。"""
+    path = Path(README)
+    text = path.read_text(encoding="utf-8")
+    if CATALOG_START not in text or CATALOG_END not in text:
+        raise SystemExit(f"{README} 缺少 {CATALOG_START} / {CATALOG_END} 标记，拒绝改写")
+    before, rest = text.split(CATALOG_START, 1)
+    _, after = rest.split(CATALOG_END, 1)
+    path.write_text(
+        before + CATALOG_START + "\n\n" + section.rstrip() + "\n\n" + CATALOG_END + after,
+        encoding="utf-8",
+    )
+
+
 def main():
     rows = fetch()
     by_kb = defaultdict(list)
@@ -222,7 +323,8 @@ def main():
 
     with open(OUT, "w", encoding="utf-8") as fh:
         fh.write("\n".join(L))
-    print(f"已生成 {OUT}：{len(by_kb)} 个知识库，{total_docs} 篇文档，其中扫描件 {len(scans)} 篇")
+    write_readme_catalog(render_readme_catalog(by_kb, multi, single, total_docs, ai_count))
+    print(f"已生成 {OUT} 并更新 {README}：{len(by_kb)} 个知识库，{total_docs} 篇文档，其中扫描件 {len(scans)} 篇")
 
 
 if __name__ == "__main__":

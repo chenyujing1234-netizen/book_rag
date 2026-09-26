@@ -78,7 +78,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
       "command": "uvx",
       "args": ["--from", "tencent-weknora-mcp", "weknora-mcp-server"],
       "env": {
-        "WEKNORA_BASE_URL": "http://124.222.77.32:8081/api/v1",
+        "WEKNORA_BASE_URL": "https://www.aiwang.cloud/api/v1",
         "WEKNORA_API_KEY": "sk-替换成你的key",
         "MCP_TRANSPORT": "stdio",
         "MCP_ALLOWED_UPLOAD_DIRS": "D:\\我的文档\\知识库",
@@ -93,7 +93,7 @@ curl -LsSf https://astral.sh/uv/install.sh | sh
 
 1. **`WEKNORA_BASE_URL` 结尾必须是 `/api/v1`**，漏了会所有工具都失败。
 2. **`MCP_ALLOWED_UPLOAD_DIRS` 不填就无法导入文件**。这是文件路径白名单，只有该目录（及子目录）下的文件允许上传。实测白名单外的路径（如 `/etc/hostname`）会被拒绝并返回 `Error executing tool create_knowledge_from_file`。多个目录用逗号分隔。
-3. 端口 **8081** 需要在腾讯云安全组放通，否则你电脑连不上。
+3. 腾讯云安全组需放通 **443**（HTTPS）；域名 **www.aiwang.cloud** 需解析到本机公网 IP。
 
 如果你的助手不是用 JSON 配置而是图形界面，对应填：命令 `uvx`，参数 `--from tencent-weknora-mcp weknora-mcp-server`，然后逐条添加上面的环境变量。
 
@@ -111,7 +111,7 @@ MCP server 的诊断信息全部输出到 stderr（stdout 是 JSON-RPC 通道）
 
 ```
 === WeKnora MCP Server 环境检查 ===
-Base URL: http://124.222.77.32:8081/api/v1
+Base URL: https://www.aiwang.cloud/api/v1
 API Key: 已设置
 正在启动 WeKnora MCP Server (transport=stdio)...
 ```
@@ -296,9 +296,9 @@ git clone --depth 1 https://github.com/Tencent/WeKnora.git
 ## 八、如果连不上，按这个顺序排查
 
 1. **助手里根本没出现 weknora 工具** —— MCP server 进程没起来。看助手的 MCP 日志（stderr），常见原因是 `uvx` 下载超时（换国内源）或 Python 版本低于 3.10。
-2. **工具出现但调用全失败** —— 检查 `WEKNORA_BASE_URL` 是否漏了 `/api/v1`，以及安全组是否放通 8081。可以先在你电脑上直接验证连通性：
+2. **工具出现但调用全失败** —— 检查 `WEKNORA_BASE_URL` 是否漏了 `/api/v1`，以及域名能否解析、443 是否放通。可以先在你电脑上直接验证连通性：
    ```bash
-   curl -H "X-API-Key: sk-你的key" http://124.222.77.32:8081/api/v1/knowledge-bases
+   curl -H "X-API-Key: sk-你的key" https://www.aiwang.cloud/api/v1/knowledge-bases
    ```
    返回知识库 JSON 说明网络和 Key 都没问题，那就是 MCP 配置的问题。
 3. **只有文件导入失败** —— `MCP_ALLOWED_UPLOAD_DIRS` 没设，或目标文件不在白名单目录下。

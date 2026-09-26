@@ -8,12 +8,12 @@
 
 | 入口 | 地址 | 说明 |
 | --- | --- | --- |
-| 前端 + API（推荐） | `http://124.222.77.32:8081` | nginx 将 `/api/` 反代到后端，与浏览器访问同一入口 |
+| 前端 + API（推荐） | `https://www.aiwang.cloud` | nginx 将 `/api/` 反代到后端，与浏览器访问同一入口 |
 | 后端直连 | `http://124.222.77.32:8083` | 绕过 nginx 直达 Go 服务，两者 API 完全一致 |
 
-推荐走 **8081**。该入口的 nginx 已针对 SSE 做过调优（`proxy_buffering off`、读超时 3600s），流式问答不会被缓冲；直连 8083 则少一层代理，适合内网批量导入。
+推荐走 **https://www.aiwang.cloud**。宿主机 nginx（443/80）反代到 WeKnora 前端，内层 nginx 已对 SSE 做过调优（`proxy_buffering off`、读超时 3600s）；直连 8083 则少一层代理，适合服务器本机批量导入。
 
-**前置条件：腾讯云安全组需放通对应端口**（8081 或 8083）。宿主机 ufw 未启用，不需要额外配置。若不想暴露公网，可用 SSH 隧道：
+**前置条件：腾讯云安全组需放通 443 和 80**（Let's Encrypt 续期与 HTTP 跳转用）。WeKnora 的 8081 仅监听 `127.0.0.1`，不再对公网暴露。若不想暴露公网，可用 SSH 隧道：
 
 ```bash
 ssh -L 8081:127.0.0.1:8081 root@124.222.77.32
@@ -42,13 +42,13 @@ X-API-Key: sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
 
 ```bash
 # 1) 登录取 JWT（同时拿到 tenant_id，本实例是 10000）
-TOKEN=$(curl -s -X POST http://124.222.77.32:8081/api/v1/auth/login \
+TOKEN=$(curl -s -X POST https://www.aiwang.cloud/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"你的邮箱","password":"你的密码"}' \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['token'])")
 
 # 2) 创建全权限 Key
-curl -s -X POST http://124.222.77.32:8081/api/v1/tenants/10000/api-keys \
+curl -s -X POST https://www.aiwang.cloud/api/v1/tenants/10000/api-keys \
   -H "Authorization: Bearer $TOKEN" -H 'Content-Type: application/json' \
   -d '{"name":"my-client","full_access":true,"knowledge_base_ids":[],"capabilities":[]}'
 ```
@@ -146,7 +146,7 @@ DELETE /api/v1/knowledge-bases/{kb_id}    # 删除（同步返回）
 **上传本地文件**（multipart，字段名必须是 `file`）：
 
 ```bash
-curl -X POST http://124.222.77.32:8081/api/v1/knowledge-bases/{kb_id}/knowledge/file \
+curl -X POST https://www.aiwang.cloud/api/v1/knowledge-bases/{kb_id}/knowledge/file \
   -H "X-API-Key: $KEY" \
   -F "file=@/path/to/doc.pdf;type=application/pdf"
 ```
@@ -154,7 +154,7 @@ curl -X POST http://124.222.77.32:8081/api/v1/knowledge-bases/{kb_id}/knowledge/
 **按 URL 抓取**：
 
 ```bash
-curl -X POST http://124.222.77.32:8081/api/v1/knowledge-bases/{kb_id}/knowledge/url \
+curl -X POST https://www.aiwang.cloud/api/v1/knowledge-bases/{kb_id}/knowledge/url \
   -H "X-API-Key: $KEY" -H 'Content-Type: application/json' \
   -d '{"url":"https://example.com/article"}'
 ```
@@ -328,7 +328,7 @@ from pathlib import Path
 import chardet
 import requests
 
-BASE = "http://124.222.77.32:8081"
+BASE = "https://www.aiwang.cloud"
 API_KEY = "sk-替换成你的key"
 KB_ID = "e8ec2c8d-5a8f-4999-a4f2-ff42d6bf54ce"
 

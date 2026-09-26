@@ -10,7 +10,7 @@ description: 从免费开放的书本 RAG 书库中检索原文。当用户询�
 ## 配置
 
 ```
-BASE_URL = https://www.aiwang.cloud/api/v1
+BASE_URL = http://124.222.77.32:8081/api/v1
 API_KEY  = sk-zR7iHweItYJ-pu0gvBNTuss-WJZVxBP9UxW0OEuJqUk
 ```
 

@@ -1,6 +1,6 @@
 # book_rag — 免费开放的书本 RAG 服务
 
-**Web 界面（WeKnora）：** [https://www.aiwang.cloud/login](https://www.aiwang.cloud/login)
+**Web 界面（WeKnora）：** [http://124.222.77.32:8081/login](http://124.222.77.32:8081/login)（域名 `www.aiwang.cloud` 暂不使用）
 
 一个基于 [WeKnora](https://github.com/Tencent/WeKnora) 搭建的开源免费书本 RAG。
 
@@ -922,7 +922,7 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
       "command": "uvx",
       "args": ["--from", "tencent-weknora-mcp", "weknora-mcp-server"],
       "env": {
-        "WEKNORA_BASE_URL": "https://www.aiwang.cloud/api/v1",
+        "WEKNORA_BASE_URL": "http://124.222.77.32:8081/api/v1",
         "WEKNORA_API_KEY": "sk-zR7iHweItYJ-pu0gvBNTuss-WJZVxBP9UxW0OEuJqUk",
         "MCP_TRANSPORT": "stdio",
         "UV_INDEX_URL": "https://pypi.tuna.tsinghua.edu.cn/simple"
@@ -960,7 +960,7 @@ Skill 的工作方式是：助手先列出知识库找到相关的那本书，�
 不想用助手、想自己写程序的话，检索一条命令就能试：
 
 ```bash
-curl -X POST "https://www.aiwang.cloud/api/v1/knowledge-bases/{kb_id}/hybrid-search" \
+curl -X POST "http://124.222.77.32:8081/api/v1/knowledge-bases/{kb_id}/hybrid-search" \
   -H "X-API-Key: sk-zR7iHweItYJ-pu0gvBNTuss-WJZVxBP9UxW0OEuJqUk" \
   -H 'Content-Type: application/json' \
   -d '{"query_text":"挪亚方舟洪水","top_k":3}'

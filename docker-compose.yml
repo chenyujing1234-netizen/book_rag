@@ -94,8 +94,8 @@ services:
     image: wechatopenai/weknora-ui:latest
     container_name: WeKnora-frontend
     ports:
-      # 只监听本机，公网走宿主机 nginx（443/80 → aiwang.cloud）
-      - "127.0.0.1:${FRONTEND_PORT:-8081}:80"
+      # 公网直接访问：http://<公网IP>:8081（域名暂不用时可先这样用）
+      - "${FRONTEND_PORT:-8081}:80"
     # 不使用 env_file：.env 里的 APP_PORT 是宿主映射端口，会让 nginx 代理到错误端口。
     environment:
       - MAX_FILE_SIZE_MB=${MAX_FILE_SIZE_MB:-50}

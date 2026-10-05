@@ -936,6 +936,17 @@ powershell -ExecutionPolicy ByPass -c "irm https://astral.sh/uv/install.ps1 | ie
 
 重启助手，问一句「书库里关于挪亚方舟怎么说」试试。更多细节、两种传输方式的取舍、以及踩过的坑都写在 **[MCP对接说明.md](MCP对接说明.md)**。
 
+### 远程 MCP（助手不支持 stdio 时）
+
+如果你的助手只能配远程 MCP（HTTP Streamable，比如 Manus 连接器），直接填：
+
+```text
+端点:   http://124.222.77.32:8081/mcp
+鉴权头: Authorization: Bearer <token>
+```
+
+这个端点持有**完整读写权限**，所以 access token 不公开，需要的话提 Issue 或直接联系站长索取。上面那个只读 Key 与此端点互不相干。
+
 ---
 
 ## 接入方式二：Skill

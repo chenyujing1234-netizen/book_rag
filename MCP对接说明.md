@@ -126,6 +126,12 @@ API Key: 已设置
 
 服务器已有 `uv`（`/root/.local/bin/uv`）。用国内源装好后以 HTTP 传输启动：
 
+> **2026-10-05 起已改为 systemd 托管**（此前手动启动，进程随会话消失导致 8082 掉线一次）：
+> `systemctl status weknora-mcp` 查看状态，配置在 `/etc/systemd/system/weknora-mcp.service`，
+> 鉴权 token 备份在 `/root/.mcp_auth_token`（权限 600），上传白名单目录 `/data/weknora-upload`。
+> 改配置后 `systemctl daemon-reload && systemctl restart weknora-mcp`。
+> 下面是当初的手动验证步骤，留作参考。
+
 ```bash
 # 安装
 uv venv /opt/weknora-mcp-venv --python 3.10
@@ -160,6 +166,11 @@ INFO:     Uvicorn running on http://0.0.0.0:8082
 ### 4.2 助手侧配置
 
 端点是 `http://124.222.77.32:8082/mcp`，鉴权头用 `Authorization: Bearer <MCP_SERVER_AUTH_TOKEN>`（也接受 `X-MCP-Auth-Token`）。实测不带 token 访问返回 401，带上则正常握手。
+
+> **8082 直连不通时走 8081 中转（2026-10-05 实测可用）**：腾讯云安全组只放通了 8081/8083，
+> 8082 的 SYN 会被云侧丢弃（扫描器却显示「端口开放」，是 SYN 代理假象）。前端 nginx 已加
+> `location /mcp` 反代到宿主机 8082，所以 **`http://124.222.77.32:8081/mcp` 与直连等价**，
+> 配置把 URL 里的 `8082` 换成 `8081` 即可。鉴权头不变。
 
 ```json
 {

@@ -105,6 +105,8 @@ services:
     volumes:
       # 覆盖镜像内同名文件，仅追加 gzip off（见文件内注释）
       - ./nginx/api-proxy.conf:/etc/nginx/api-proxy.conf:ro
+      # 覆盖镜像内模板：加了 /mcp 反代到宿主机 8082 的 WeKnora MCP（见模板内注释）
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
     depends_on:
       app:
         condition: service_healthy

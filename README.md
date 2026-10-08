@@ -1047,6 +1047,8 @@ docker compose up -d
 
 建库时**务必**带上 `embedding_model_id`、`summary_model_id` 和 `chunking_config` 三个参数，否则文档会全部解析失败 —— 这是最容易踩的坑，原因和修复办法写在 [API对接说明.md](API对接说明.md) 第 3.1 节。
 
+想要**知识图谱增强检索**（GraphRAG）的话，编排里已带 Neo4j 服务（含 APOC 插件），`.env` 里 `NEO4J_ENABLE=true` 打开即可；建库请求体和踩坑记录见 [图向量知识库使用说明.md](图向量知识库使用说明.md)。注意图谱抽取会对每个文本块调用一次对话模型，token 消耗明显高于纯向量入库。
+
 ### 仓库文件说明
 
 | 文件 | 说明 |

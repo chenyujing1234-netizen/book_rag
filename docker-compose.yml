@@ -1,7 +1,8 @@
 # WeKnora 最小栈容器编排（纯预构建镜像，不含任何本地构建）
 # 裁剪自官方 docker-compose.yml，仅保留默认启用的 5 个服务。
-# 可选组件（MinIO / Neo4j / Qdrant / Milvus / Langfuse / SearxNG / MCP）已移除：
+# 可选组件（MinIO / Qdrant / Milvus / Langfuse / SearxNG / MCP）已移除：
 # 本机 3.6G 物理内存承载不了，需要时再单独接入。
+# Neo4j 已于 2026-10-08 以低配参数（堆 384m / 页缓存 128m）接入，供图谱抽取使用。
 services:
   postgres:
     image: paradedb/paradedb:v0.22.2-pg17
@@ -34,6 +35,34 @@ services:
       - WeKnora-network
     restart: unless-stopped
     mem_limit: 192m
+
+  neo4j:
+    # 与官方 WeKnora compose 对齐（含 APOC 插件，图谱写入依赖 apoc.merge.node）
+    image: neo4j:2025.10.1
+    container_name: WeKnora-neo4j
+    environment:
+      - NEO4J_AUTH=neo4j/${NEO4J_PASSWORD}
+      - NEO4J_apoc_export_file_enabled=true
+      - NEO4J_apoc_import_file_enabled=true
+      - NEO4J_apoc_import_file_use__neo4j__config=true
+      - NEO4JLABS_PLUGINS=["apoc"]
+      # 低配参数适配 3.6G 内存小机
+      - NEO4J_server_memory_heap_initial__size=256m
+      - NEO4J_server_memory_heap_max__size=384m
+      - NEO4J_server_memory_pagecache_size=128m
+      - NEO4J_server_jvm_additional=-XX:MaxDirectMemorySize=128m
+    volumes:
+      - neo4j-data:/data
+    networks:
+      - WeKnora-network
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://localhost:7474 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+      start_period: 60s
+    restart: unless-stopped
+    mem_limit: 700m
 
   docreader:
     image: wechatopenai/weknora-docreader:latest
@@ -83,6 +112,8 @@ services:
         condition: service_healthy
       docreader:
         condition: service_healthy
+      neo4j:
+        condition: service_healthy
     networks:
       - WeKnora-network
     restart: unless-stopped
@@ -124,3 +155,4 @@ volumes:
   redis-data:
   data-files:
   docreader-tmp:
+  neo4j-data:
